@@ -1,0 +1,13 @@
+{
+  "pythonVersion": "3.14",
+  "typeCheckingMode": "basic",
+  "include": [
+    "*.py",
+    "tools"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.git"
+  ],
+  "reportMissingModuleSource": "none"
+}

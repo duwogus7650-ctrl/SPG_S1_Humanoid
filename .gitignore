@@ -1,0 +1,33 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+*.tmp
+g1_preview.png
+g1_demo_frame.png
+g1_restyle_test.png
+g1_full_test.png
+g1_sanity.log
+g1_reward.log
+spg_*.png
+orient_*.png
+MUJOCO_LOG.TXT
+# 헤드리스 학습 녹화 산출물(러너/워크플로가 생성)
+recordings/
+checkpoints/
+*.mp4
+
+# feedback-runner 평가 산출물(계측기가 생성)
+out/
+.feedback/
+# 다운로드한 학습 체크포인트(원격 아티팩트, 프로젝트 산출물 아님)
+ckpt_12h_oldcode/
+# ablation 학습 산출물(러너/워크플로가 생성)
+ablation_out/
+
+# 로컬 플러그인 상태(프로젝트 산출물 아님)
+.bkit/
+.omc/
+# ablation 결과 다운로드(아티팩트)
+ablation_results/
+seed/

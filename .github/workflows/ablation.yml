@@ -1,0 +1,85 @@
+name: 보행 ablation (병렬 변형 학습)
+
+# 12번 학습 실패 근본원인(레퍼런스가 못 걷는 궤적 → "모방 vs 균형" 충돌, §18) 처방을
+# 변형(variant)별로 GitHub Actions 무료 러너에서 '동시에' 학습·평가한다.
+# 무엇이 걷게 하는지 attribution을 얻기 위함. 각 잡은 독립이라 병렬로 돈다.
+#   v0_baseline : 현행(대조군)
+#   v1_reward   : 보상 재균형(W_POSE↓ + W_UP/W_ALIVE↑)
+#   v2_explore  : 탐험↑(LOG_STD/ENT_COEF)
+#   v3_authority: 잔차권한↑(ACTION_SCALE 1.0)
+#   v4_combined : 위 3개 전부
+
+on:
+  workflow_dispatch:
+    inputs:
+      steps:
+        description: "변형당 학습 스텝 수"
+        default: "5000000"
+        required: true
+      eval_eps:
+        description: "평가 에피소드 수"
+        default: "8"
+        required: true
+  # 새 레포에선 main에 있으므로 workflow_dispatch(수동 트리거)로 실행.
+
+env:
+  OMP_NUM_THREADS: "1"
+  MKL_THREADING_LAYER: GNU
+  SDL_VIDEODRIVER: dummy
+  SDL_AUDIODRIVER: dummy
+
+jobs:
+  ablate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350          # 6h 한도 내(5M스텝 ≈ 50분 예상, 여유)
+    strategy:
+      fail-fast: false            # 한 변형이 죽어도 나머지는 계속
+      # 라운드3(자연 레퍼런스): IK 기반 '협응 자연보행' 레퍼런스로 교체 후, 그 좋은
+      # 레퍼런스를 얼마나 강하게 모방(W_POSE)하면서 부드럽게(W_ACT) 걷는지 탐색.
+      # 좋은 레퍼런스라 모방=균형이 정렬되므로 W_POSE를 높여도 됨(§18 충돌 해소).
+      # 평가: 생존+전진+부드러움(act_rate,signflip) → '자연스럽게 걷는' 설정 선택.
+      matrix:
+        include:
+          - {variant: n0_imit,   action_scale: "0.6", w_pose: "1.0", w_up: "0.7", w_alive: "1.0", w_act: "0.05", log_std: "-1.0", ent_coef: "0.0"}
+          - {variant: n1_strong, action_scale: "0.6", w_pose: "1.8", w_up: "0.7", w_alive: "1.0", w_act: "0.10", log_std: "-1.0", ent_coef: "0.0"}
+          - {variant: n2_smooth, action_scale: "0.6", w_pose: "1.5", w_up: "0.7", w_alive: "1.0", w_act: "0.25", log_std: "-1.0", ent_coef: "0.0"}
+          - {variant: n3_surv,   action_scale: "0.6", w_pose: "1.2", w_up: "1.0", w_alive: "1.3", w_act: "0.15", log_std: "-1.0", ent_coef: "0.0"}
+          - {variant: n4_high,   action_scale: "0.6", w_pose: "2.2", w_up: "0.7", w_alive: "1.0", w_act: "0.15", log_std: "-1.0", ent_coef: "0.0"}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 시스템 라이브러리(mujoco import용 libGL)
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libgl1
+
+      - name: 파이썬 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pygame-ce "torch<3" "mujoco>=3.0,<4" \
+                      "gymnasium>=0.29,<2" "stable_baselines3>=2.0.0,<3" robot_descriptions
+
+      - name: 학습 + 평가 (${{ matrix.variant }})
+        env:
+          VARIANT: ${{ matrix.variant }}
+          STEPS: ${{ github.event.inputs.steps || '5000000' }}
+          EVAL_EPS: ${{ github.event.inputs.eval_eps || '8' }}
+          ACTION_SCALE: ${{ matrix.action_scale }}
+          W_POSE: ${{ matrix.w_pose }}
+          W_UP: ${{ matrix.w_up }}
+          W_ALIVE: ${{ matrix.w_alive }}
+          W_ACT: ${{ matrix.w_act }}
+          LOG_STD: ${{ matrix.log_std }}
+          ENT_COEF: ${{ matrix.ent_coef }}
+        run: python tools/ablation_train.py
+
+      - name: 결과 + 체크포인트 아티팩트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ablation-${{ matrix.variant }}
+          path: ablation_out/
+          retention-days: 30

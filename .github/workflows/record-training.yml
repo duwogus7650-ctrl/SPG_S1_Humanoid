@@ -1,0 +1,173 @@
+name: SPG S1 학습 자동 녹화 (12시간 누적)
+
+# PC 없이 GitHub 클라우드에서 SPG S1(12_g1_ppo.py)을 PPO로 연속 학습시키며
+# 1시간 간격으로 현재 정책을 15초씩 녹화해 artifact로 올린다.
+# GitHub Actions의 잡 1개 최대 6시간 한도 때문에, 6시간짜리 세그먼트 2개를
+# 체크포인트로 이어 붙여 ~12시간 누적 학습한다(seg1 → seg2 가중치 복원).
+#
+# 실행: Actions 탭 → 이 워크플로 → "Run workflow"
+#   (수동 트리거 버튼이 보이려면 이 파일이 기본 브랜치(main)에 있어야 함)
+
+on:
+  workflow_dispatch:
+    inputs:
+      segment_seconds:
+        description: "세그먼트당 학습 시간(초). 잡 6시간 한도 안쪽으로. 기본 19800=5h30m"
+        required: false
+        default: "19800"
+      interval_seconds:
+        description: "녹화 간격(초). 기본 1200=20분(실시간 미리보기용)"
+        required: false
+        default: "1200"
+      clip_seconds:
+        description: "클립 길이(초). 기본 15"
+        required: false
+        default: "15"
+      seed_run_id:
+        description: "이어학습 시드: 이 run의 checkpoint-final을 받아 정책을 이어받음(비우면 새 학습)"
+        required: false
+        default: ""
+
+env:
+  MUJOCO_GL: osmesa
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  # ---------------- 세그먼트 1: 0 ~ ~6시간 (새 학습) ----------------
+  segment-1:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # 라이브 클립을 Release 에셋으로 업로드
+      actions: read            # 이전 런의 체크포인트 아티팩트 다운로드
+    # GitHub 6시간(360분) 하드 한도 안쪽. 녹화(5h30m) + pip/셋업(~6m) + 클립
+    # 업로드가 모두 이 안에 끝나야 함(잡 타임아웃이 걸리면 if:always 업로드도 강제
+    # 종료됨). 358분으로 두어 업로드용 마진을 ~17분 확보(과거 5h45m은 마진 부족으로
+    # 업로드 직전 종료 → 산출물 유실).
+    timeout-minutes: 358
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 시스템 GL 라이브러리(OSMesa) + 한글 폰트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libosmesa6 libgl1-mesa-dri fonts-nanum
+
+      - name: 파이썬 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pygame-ce imageio "imageio[ffmpeg]" pillow \
+                      "torch<3" "mujoco>=3.0,<4" "gymnasium>=0.29,<2" \
+                      "stable_baselines3>=2.0.0,<3" robot_descriptions
+
+      - name: 시드 체크포인트 다운로드(이전 런 정책 이어받기, 선택)
+        if: ${{ github.event.inputs.seed_run_id != '' }}
+        continue-on-error: true      # 실패하면 새 학습으로 폴백
+        uses: actions/download-artifact@v4
+        with:
+          name: checkpoint-final
+          run-id: ${{ github.event.inputs.seed_run_id }}
+          github-token: ${{ github.token }}
+          path: checkpoints/
+
+      - name: 학습 + 녹화 (세그먼트 1)
+        env:
+          OUT_DIR: recordings
+          CKPT_DIR: checkpoints
+          DURATION_SEC: ${{ github.event.inputs.segment_seconds }}
+          INTERVAL_SEC: ${{ github.event.inputs.interval_seconds }}
+          CLIP_SEC: ${{ github.event.inputs.clip_seconds }}
+          OFFSET_SEC: "0"
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: python tools/record_training.py
+
+      - name: 클립 업로드 (세그먼트 1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recordings-segment-1
+          path: recordings/
+          retention-days: 14
+
+      - name: 체크포인트 업로드(다음 세그먼트로 전달)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-after-segment-1
+          path: checkpoints/
+          retention-days: 14
+
+  # ---------------- 세그먼트 2: ~6 ~ ~12시간 (이어 학습) ----------------
+  segment-2:
+    needs: segment-1
+    # segment-1이 타임아웃/실패해도(취소 제외) 실행한다. 그 경우에도 if:always로 올린
+    # 직전 체크포인트가 있으면 이어서, 없으면 새 학습으로 폴백한다(전부 유실 방지).
+    if: ${{ always() && needs.segment-1.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write          # 라이브 클립을 Release 에셋으로 업로드
+      actions: read            # 같은 런의 체크포인트 아티팩트 다운로드
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 시스템 GL 라이브러리(OSMesa) + 한글 폰트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libosmesa6 libgl1-mesa-dri fonts-nanum
+
+      - name: 파이썬 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pygame-ce imageio "imageio[ffmpeg]" pillow \
+                      "torch<3" "mujoco>=3.0,<4" "gymnasium>=0.29,<2" \
+                      "stable_baselines3>=2.0.0,<3" robot_descriptions
+
+      - name: 세그먼트 1 체크포인트 복원
+        continue-on-error: true      # 없으면(세그먼트1 산출물 유실) 새 학습으로 폴백
+        uses: actions/download-artifact@v4
+        with:
+          name: checkpoint-after-segment-1
+          path: checkpoints/
+
+      - name: 누적 학습시간(OFFSET) 계산
+        id: offset
+        run: |
+          OFF=$(python -c "import json,os;p='checkpoints/meta.json';print(json.load(open(p))['cumulative_seconds'] if os.path.exists(p) else 0)")
+          echo "seconds=$OFF" >> "$GITHUB_OUTPUT"
+          if [ "$OFF" = "0" ]; then echo "::warning::세그먼트1 체크포인트 없음 — 새 학습으로 폴백"; fi
+          echo "세그먼트2 OFFSET = ${OFF}s"
+
+      - name: 학습 + 녹화 (세그먼트 2, 이어서)
+        env:
+          OUT_DIR: recordings
+          CKPT_DIR: checkpoints
+          DURATION_SEC: ${{ github.event.inputs.segment_seconds }}
+          INTERVAL_SEC: ${{ github.event.inputs.interval_seconds }}
+          CLIP_SEC: ${{ github.event.inputs.clip_seconds }}
+          OFFSET_SEC: ${{ steps.offset.outputs.seconds }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: python tools/record_training.py
+
+      - name: 클립 업로드 (세그먼트 2)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recordings-segment-2
+          path: recordings/
+          retention-days: 14
+
+      - name: 최종 체크포인트 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkpoint-final
+          path: checkpoints/
+          retention-days: 14

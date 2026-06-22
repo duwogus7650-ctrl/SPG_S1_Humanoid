@@ -1,0 +1,71 @@
+name: 스모크 테스트 (녹화 러너 검증)
+
+# record_training.py가 헤드리스에서 실제로 학습→렌더→mp4 저장까지 되는지
+# 빠르게(짧은 시간) 검증한다. 긴 12시간 워크플로를 돌리기 전 깨짐을 잡는 안전망.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  MUJOCO_GL: osmesa
+  OMP_NUM_THREADS: "1"
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 시스템 GL 라이브러리(OSMesa) + 한글 폰트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq libosmesa6 libgl1-mesa-dri fonts-nanum
+
+      - name: 파이썬 의존성 설치
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pygame-ce imageio "imageio[ffmpeg]" pillow \
+                      "torch<3" "mujoco>=3.0,<4" "gymnasium>=0.29,<2" \
+                      "stable_baselines3>=2.0.0,<3" robot_descriptions
+
+      - name: 짧은 학습 + 녹화 실행 (30초)
+        env:
+          OUT_DIR: recordings
+          CKPT_DIR: checkpoints
+          DURATION_SEC: "30"
+          INTERVAL_SEC: "999"
+          CLIP_SEC: "2"
+          CLIP_FPS: "25"
+          SAVE_EVERY_SEC: "15"
+        run: python tools/record_training.py
+
+      - name: 산출물 검증 (mp4 + 체크포인트 + 프레임 무결성)
+        run: |
+          python - <<'PY'
+          import glob, sys
+          import imageio.v3 as iio
+          clips = sorted(glob.glob("recordings/*.mp4"))
+          assert clips, "녹화 클립(mp4)이 생성되지 않았습니다"
+          frames = iio.imread(clips[0], index=None)
+          assert frames.shape[0] > 0, "클립에 프레임이 없습니다"
+          assert frames.shape[1:] == (780, 1240, 3), f"예상치 못한 프레임 크기: {frames.shape}"
+          import os
+          assert os.path.exists("checkpoints/ppo_model.zip"), "체크포인트(ppo_model.zip)가 없습니다"
+          assert os.path.exists("checkpoints/vecnormalize.pkl"), "정규화 통계(vecnormalize.pkl)가 없습니다"
+          print(f"OK: 클립 {len(clips)}개, 첫 클립 {frames.shape[0]} 프레임 {frames.shape[1:]}")
+          PY
+
+      - name: 스모크 클립 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-clip
+          path: recordings/
+          retention-days: 7

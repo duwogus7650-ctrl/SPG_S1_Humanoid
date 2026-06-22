@@ -1,0 +1,15 @@
+{
+  "run": "python tools/eval_policy.py --episodes 5 --out out --ckpt-dir checkpoints",
+  "cwd": ".",
+  "outputs_dir": "out",
+  "results_file": "out/eval_results.json",
+  "oracle_file": "walk_oracle.json",
+  "timeout_s": 600,
+  "tolerances": {
+    "default":      { "atol": 0.0, "rtol": 0.10 },
+    "mean_fwd_vel": { "atol": 0.20, "rtol": 0.15 },
+    "mean_ep_len":  { "atol": 250.0, "rtol": 0.0 },
+    "fall_rate":    { "atol": 0.25, "rtol": 0.0 },
+    "mean_upright": { "atol": 0.12, "rtol": 0.0 }
+  }
+}

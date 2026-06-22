@@ -1,0 +1,19 @@
+# SPG S1 (Unitree G1 휴머노이드 보행 RL) — 오프라인 실행 의존성
+# 설치:  pip install -r requirements.txt      (Python 3.10~3.14 동작 확인)
+#
+# 학습+관찰:  python 12_g1_ppo.py
+# 정책 재생 :  python play.py <체크포인트폴더>
+# 자세한 사용법은 실행방법.md 참고.
+
+numpy
+pygame-ce>=2.5
+mujoco>=3.0,<4
+gymnasium>=0.29,<2
+stable_baselines3>=2.0.0,<3
+torch<3
+robot_descriptions
+
+# play.py --record(mp4 저장) / 헤드리스 녹화에만 필요(창으로 볼 땐 불필요)
+imageio
+imageio[ffmpeg]
+pillow

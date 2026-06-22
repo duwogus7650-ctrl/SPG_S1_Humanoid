@@ -1,0 +1,6 @@
+{
+  "mean_fwd_vel": 0.8,
+  "mean_ep_len": 1500,
+  "fall_rate": 0.0,
+  "mean_upright": 1.0
+}
