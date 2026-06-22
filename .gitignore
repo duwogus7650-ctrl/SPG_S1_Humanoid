@@ -31,3 +31,6 @@ ablation_out/
 # ablation 결과 다운로드(아티팩트)
 ablation_results/
 seed/
+
+# Unitree 모델/정책 다운로드 캐시(외부 자산)
+unitree_g1/

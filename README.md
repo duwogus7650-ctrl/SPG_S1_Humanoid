@@ -55,21 +55,26 @@ tools/
 
 자세한 개발 경위는 [개발일지.md](개발일지.md), 작업 로그는 [tasks/todo.md](tasks/todo.md).
 
-## Unitree 사전학습 정책 보기 — `deploy_mujoco_spg.py`
+## Unitree 사전학습 정책 보기 (검증된 G1 보행)
 
 Unitree가 공개한 **검증된 G1 보행 정책**(motion.pt)을 SPG S1 Humanoid 화면으로 본다.
-Unitree `deploy_mujoco` 로직을 **그대로** 쓰되 UI만 SPG로 바꾼 drop-in이다(그들 모델/정책 사용).
+deploy_mujoco 로직을 **그대로** 쓰되 UI만 SPG로 바꿨다.
 
+**① 우리 폴더에서 바로 (권장) — `unitree_walk_spg.py`**
 ```bash
-git clone https://github.com/unitreerobotics/unitree_rl_gym
-cd unitree_rl_gym && pip install -e .
-pip install pygame-ce imageio "imageio[ffmpeg]"
-cp /경로/SPG_S1_Humanoid/deploy_mujoco_spg.py deploy/deploy_mujoco/
-cd deploy/deploy_mujoco
-python deploy_mujoco_spg.py g1.yaml                 # 창에서 재생
-python deploy_mujoco_spg.py g1.yaml --record w.mp4  # mp4 저장
+pip install -r requirements.txt          # 처음 한 번
+python unitree_walk_spg.py               # 첫 실행 시 Unitree 모델+motion.pt 자동 다운로드
+python unitree_walk_spg.py --record w.mp4 --seconds 20
 ```
-> motion.pt 로드/추론은 본인 PC에서 실행된다(외부 정책). 우리 학습 정책은 `python run.py play`로 본다.
+첫 실행이 `unitree_g1/`에 모델·정책을 받는다(이후 캐시). 조작: ↑↓ 속도명령 · Q/E 회전 · ESC.
+
+**② Unitree 저장소 안에서 (drop-in) — `deploy_mujoco_spg.py`**
+```bash
+git clone https://github.com/unitreerobotics/unitree_rl_gym && cd unitree_rl_gym && pip install -e .
+cp /경로/SPG_S1_Humanoid/deploy_mujoco_spg.py deploy/deploy_mujoco/
+cd deploy/deploy_mujoco && python deploy_mujoco_spg.py g1.yaml
+```
+> motion.pt 로드/추론은 본인 PC에서 실행된다(외부 정책). 우리 *자체* 학습 정책은 `python run.py play`로 본다.
 
 ---
 *SPG Robotics · S1 Humanoid · MuJoCo · Stable-Baselines3 PPO*
