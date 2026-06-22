@@ -193,20 +193,27 @@ C_CURVE_BEST = (255, 176, 0); C_CURVE_AVG = (120, 165, 230)
 # SPG S1 외피(시각 전용·비충돌·무질량) — (바디, 타입, size, pos, 재질).
 #  물리 불변: contype/conaffinity=0(충돌X), 바디는 명시 inertial 보유(질량 불변).
 _SKIN = [
-    ("torso_link", "box", (0.024, 0.090, 0.115), (0.110, 0.0, 0.00), "spg_shell"),   # 가슴 셸
-    ("torso_link", "box", (0.020, 0.040, 0.040), (0.140, 0.0, 0.072), "spg_core"),   # 가슴 앰버 코어(시그니처)
-    ("torso_link", "box", (0.018, 0.090, 0.014), (0.130, 0.0, 0.120), "spg_amber"),  # 쇄골 앰버 바
-    ("torso_link", "box", (0.020, 0.014, 0.060), (0.126, 0.052, 0.045), "spg_amber"),  # 좌측 가슴 라인
-    ("torso_link", "box", (0.020, 0.014, 0.060), (0.126, -0.052, 0.045), "spg_amber"), # 우측 가슴 라인
-    ("torso_link", "box", (0.034, 0.075, 0.105), (-0.105, 0.0, 0.02), "spg_shell"),  # 백팩 셸
-    ("left_shoulder_pitch_link", "ellipsoid", (0.060, 0.066, 0.060), (0.0, 0.0, 0.0), "spg_shell"),
-    ("right_shoulder_pitch_link", "ellipsoid", (0.060, 0.066, 0.060), (0.0, 0.0, 0.0), "spg_shell"),
-    ("left_shoulder_pitch_link", "box", (0.030, 0.014, 0.052), (0.045, 0.0, 0.0), "spg_amber"),
-    ("right_shoulder_pitch_link", "box", (0.030, 0.014, 0.052), (0.045, 0.0, 0.0), "spg_amber"),
-    ("left_knee_link", "box", (0.040, 0.048, 0.130), (0.020, 0.0, -0.130), "spg_shell"),
-    ("right_knee_link", "box", (0.040, 0.048, 0.130), (0.020, 0.0, -0.130), "spg_shell"),
-    ("left_knee_link", "box", (0.044, 0.014, 0.090), (0.020, 0.0, -0.130), "spg_amber"),
-    ("right_knee_link", "box", (0.044, 0.014, 0.090), (0.020, 0.0, -0.130), "spg_amber"),
+    # 머리: 다크 헬멧 셸 + 얇은 앰버 바이저 (head는 torso_link의 메시 → torso 로컬 offset)
+    ("torso_link", "ellipsoid", (0.078, 0.086, 0.088), (0.012, 0.0, 0.235), "spg_shell"),  # 헬멧
+    ("torso_link", "box", (0.016, 0.058, 0.015), (0.095, 0.0, 0.232), "spg_amber"),         # 바이저 밴드(헬멧 표면)
+    # 흉갑(다크) + 가슴 중앙 슬림 앰버 라인(세로) — 노란 블록 제거, 미니멀
+    ("torso_link", "box", (0.024, 0.094, 0.120), (0.106, 0.0, 0.02), "spg_shell"),
+    ("torso_link", "box", (0.026, 0.010, 0.085), (0.120, 0.0, 0.03), "spg_amber"),
+    # 백팩 셸
+    ("torso_link", "box", (0.036, 0.078, 0.110), (-0.104, 0.0, 0.02), "spg_shell"),
+    # 어깨 캡(다크) + 얇은 앰버 트림
+    ("left_shoulder_pitch_link", "ellipsoid", (0.064, 0.070, 0.064), (0.0, 0.0, 0.0), "spg_shell"),
+    ("right_shoulder_pitch_link", "ellipsoid", (0.064, 0.070, 0.064), (0.0, 0.0, 0.0), "spg_shell"),
+    ("left_shoulder_pitch_link", "box", (0.044, 0.009, 0.009), (0.052, 0.0, 0.030), "spg_amber"),
+    ("right_shoulder_pitch_link", "box", (0.044, 0.009, 0.009), (0.052, 0.0, 0.030), "spg_amber"),
+    # 허벅지 아머(다크) — 실루엣
+    ("left_hip_yaw_link", "box", (0.050, 0.055, 0.095), (0.018, 0.0, -0.055), "spg_shell"),
+    ("right_hip_yaw_link", "box", (0.050, 0.055, 0.095), (0.018, 0.0, -0.055), "spg_shell"),
+    # 정강이 가드(다크) + 얇은 앰버 스트라이프
+    ("left_knee_link", "box", (0.042, 0.050, 0.135), (0.020, 0.0, -0.130), "spg_shell"),
+    ("right_knee_link", "box", (0.042, 0.050, 0.135), (0.020, 0.0, -0.130), "spg_shell"),
+    ("left_knee_link", "box", (0.046, 0.007, 0.075), (0.020, 0.0, -0.130), "spg_amber"),
+    ("right_knee_link", "box", (0.046, 0.007, 0.075), (0.020, 0.0, -0.130), "spg_amber"),
 ]
 _GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID,
            "cylinder": mujoco.mjtGeom.mjGEOM_CYLINDER}
@@ -223,7 +230,7 @@ def build_model(plate=True):
         mt = spec.add_material(); mt.name = name
         mt.rgba = rgba; mt.emission = emission
         mt.specular = spec_v; mt.shininess = shin; mt.reflectance = refl
-    addmat("spg_shell", [0.06, 0.08, 0.13, 1.0], 0.05, 0.8, 0.8, 0.5)   # 다크 네이비 메탈
+    addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비(응집)
     addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.55, 0.5, 0.4)          # 시그니처 앰버
     addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4)         # 발광 코어
     for i, (body, typ, size, pos, mat) in enumerate(_SKIN):
