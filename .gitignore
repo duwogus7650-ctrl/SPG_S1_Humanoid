@@ -11,6 +11,7 @@ g1_sanity.log
 g1_reward.log
 spg_*.png
 orient_*.png
+e_*.png
 MUJOCO_LOG.TXT
 # 헤드리스 학습 녹화 산출물(러너/워크플로가 생성)
 recordings/

@@ -192,28 +192,13 @@ C_CURVE_BEST = (255, 176, 0); C_CURVE_AVG = (120, 165, 230)
 # ---------------------------------------------------------------------------
 # SPG S1 외피(시각 전용·비충돌·무질량) — (바디, 타입, size, pos, 재질).
 #  물리 불변: contype/conaffinity=0(충돌X), 바디는 명시 inertial 보유(질량 불변).
+# 몸통은 원래 G1 형상 그대로. 머리만 SPG 헬멧+바이저로 변경.
+#  좌표는 torso_link 로컬 프레임(실측): head_link 메시 z=0.281~0.487(중심 0.384),
+#  폭 ±0.078, 앞면 x=+0.078 — 헬멧 돔을 머리에 정확히 씌우고 바이저는 눈높이 앞면에.
 _SKIN = [
-    # 머리: 다크 헬멧 셸 + 얇은 앰버 바이저 (head는 torso_link의 메시 → torso 로컬 offset)
-    ("torso_link", "ellipsoid", (0.078, 0.086, 0.088), (0.012, 0.0, 0.235), "spg_shell"),  # 헬멧
-    ("torso_link", "box", (0.016, 0.058, 0.015), (0.095, 0.0, 0.232), "spg_amber"),         # 바이저 밴드(헬멧 표면)
-    # 흉갑(다크) + 가슴 중앙 슬림 앰버 라인(세로) — 노란 블록 제거, 미니멀
-    ("torso_link", "box", (0.024, 0.094, 0.120), (0.106, 0.0, 0.02), "spg_shell"),
-    ("torso_link", "box", (0.026, 0.010, 0.085), (0.120, 0.0, 0.03), "spg_amber"),
-    # 백팩 셸
-    ("torso_link", "box", (0.036, 0.078, 0.110), (-0.104, 0.0, 0.02), "spg_shell"),
-    # 어깨 캡(다크) + 얇은 앰버 트림
-    ("left_shoulder_pitch_link", "ellipsoid", (0.064, 0.070, 0.064), (0.0, 0.0, 0.0), "spg_shell"),
-    ("right_shoulder_pitch_link", "ellipsoid", (0.064, 0.070, 0.064), (0.0, 0.0, 0.0), "spg_shell"),
-    ("left_shoulder_pitch_link", "box", (0.044, 0.009, 0.009), (0.052, 0.0, 0.030), "spg_amber"),
-    ("right_shoulder_pitch_link", "box", (0.044, 0.009, 0.009), (0.052, 0.0, 0.030), "spg_amber"),
-    # 허벅지 아머(다크) — 실루엣
-    ("left_hip_yaw_link", "box", (0.050, 0.055, 0.095), (0.018, 0.0, -0.055), "spg_shell"),
-    ("right_hip_yaw_link", "box", (0.050, 0.055, 0.095), (0.018, 0.0, -0.055), "spg_shell"),
-    # 정강이 가드(다크) + 얇은 앰버 스트라이프
-    ("left_knee_link", "box", (0.042, 0.050, 0.135), (0.020, 0.0, -0.130), "spg_shell"),
-    ("right_knee_link", "box", (0.042, 0.050, 0.135), (0.020, 0.0, -0.130), "spg_shell"),
-    ("left_knee_link", "box", (0.046, 0.007, 0.075), (0.020, 0.0, -0.130), "spg_amber"),
-    ("right_knee_link", "box", (0.046, 0.007, 0.075), (0.020, 0.0, -0.130), "spg_amber"),
+    ("torso_link", "ellipsoid", (0.086, 0.092, 0.112), (0.012, 0.0, 0.384), "spg_shell"),  # 헬멧 돔(머리 셸)
+    ("torso_link", "ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.405), "spg_amber"),  # 앰버 바이저 렌즈(헬멧 앞면에 감김)
+    ("torso_link", "box",       (0.010, 0.0075, 0.030), (0.082, 0.0, 0.250), "spg_core"),  # SPG 가슴 코어 마크(글로잉 앰버)
 ]
 _GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID,
            "cylinder": mujoco.mjtGeom.mjGEOM_CYLINDER}
@@ -231,8 +216,24 @@ def build_model(plate=True):
         mt.rgba = rgba; mt.emission = emission
         mt.specular = spec_v; mt.shininess = shin; mt.reflectance = refl
     addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비(응집)
-    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.55, 0.5, 0.4)          # 시그니처 앰버
+    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.4)          # 시그니처 앰버(#FFB000, 글로우 절제)
     addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4)         # 발광 코어
+    # 몸통 recolor(색만): 순정 G1 머티리얼(metal 실버·black)을 다크네이비 메탈로.
+    #  geom 추가/형상 변경 없음 → 물리 100% 불변. 헬멧(spg_shell)보다 약간 밝아 형태가 읽힘.
+    _RECOLOR = {
+        "metal": ([0.105, 0.145, 0.225, 1.0], 0.45, 0.55, 0.18),  # 본체 다크네이비 스틸
+        "black": ([0.040, 0.055, 0.090, 1.0], 0.30, 0.45, 0.10),  # 말단·로고 near-black 네이비
+    }
+    for mt in spec.materials:
+        if mt.name in _RECOLOR:
+            rgba, sp, sh, rf = _RECOLOR[mt.name]
+            mt.rgba = rgba; mt.specular = sp; mt.shininess = sh; mt.reflectance = rf
+    # UNITREE 로고 제거: logo_link geom을 완전 투명화(alpha=0) → 양각 음영까지 사라짐.
+    #  색일치만으론 돋을새김이 조명에 비쳐 글자가 남아 투명 처리. 가슴엔 _SKIN의 SPG 코어 마크가 대신.
+    for g in spec.geoms:
+        if getattr(g, "meshname", "") == "logo_link":
+            g.material = ""
+            g.rgba = [0.0, 0.0, 0.0, 0.0]
     for i, (body, typ, size, pos, mat) in enumerate(_SKIN):
         try:
             b = spec.body(body)
