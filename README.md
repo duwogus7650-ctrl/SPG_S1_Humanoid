@@ -55,5 +55,21 @@ tools/
 
 자세한 개발 경위는 [개발일지.md](개발일지.md), 작업 로그는 [tasks/todo.md](tasks/todo.md).
 
+## Unitree 사전학습 정책 보기 — `deploy_mujoco_spg.py`
+
+Unitree가 공개한 **검증된 G1 보행 정책**(motion.pt)을 SPG S1 Humanoid 화면으로 본다.
+Unitree `deploy_mujoco` 로직을 **그대로** 쓰되 UI만 SPG로 바꾼 drop-in이다(그들 모델/정책 사용).
+
+```bash
+git clone https://github.com/unitreerobotics/unitree_rl_gym
+cd unitree_rl_gym && pip install -e .
+pip install pygame-ce imageio "imageio[ffmpeg]"
+cp /경로/SPG_S1_Humanoid/deploy_mujoco_spg.py deploy/deploy_mujoco/
+cd deploy/deploy_mujoco
+python deploy_mujoco_spg.py g1.yaml                 # 창에서 재생
+python deploy_mujoco_spg.py g1.yaml --record w.mp4  # mp4 저장
+```
+> motion.pt 로드/추론은 본인 PC에서 실행된다(외부 정책). 우리 학습 정책은 `python run.py play`로 본다.
+
 ---
 *SPG Robotics · S1 Humanoid · MuJoCo · Stable-Baselines3 PPO*
