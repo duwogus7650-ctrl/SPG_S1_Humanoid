@@ -190,18 +190,53 @@ C_CURVE_BEST = (255, 176, 0); C_CURVE_AVG = (120, 165, 230)
 
 
 # ---------------------------------------------------------------------------
-def build_model(plate=False):
-    """plate=True면 가슴에 SPG 네임플레이트(시각 전용 박스)를 추가해 컴파일."""
+# SPG S1 외피(시각 전용·비충돌·무질량) — (바디, 타입, size, pos, 재질).
+#  물리 불변: contype/conaffinity=0(충돌X), 바디는 명시 inertial 보유(질량 불변).
+_SKIN = [
+    ("torso_link", "box", (0.024, 0.090, 0.115), (0.110, 0.0, 0.00), "spg_shell"),   # 가슴 셸
+    ("torso_link", "box", (0.020, 0.040, 0.040), (0.140, 0.0, 0.072), "spg_core"),   # 가슴 앰버 코어(시그니처)
+    ("torso_link", "box", (0.018, 0.090, 0.014), (0.130, 0.0, 0.120), "spg_amber"),  # 쇄골 앰버 바
+    ("torso_link", "box", (0.020, 0.014, 0.060), (0.126, 0.052, 0.045), "spg_amber"),  # 좌측 가슴 라인
+    ("torso_link", "box", (0.020, 0.014, 0.060), (0.126, -0.052, 0.045), "spg_amber"), # 우측 가슴 라인
+    ("torso_link", "box", (0.034, 0.075, 0.105), (-0.105, 0.0, 0.02), "spg_shell"),  # 백팩 셸
+    ("left_shoulder_pitch_link", "ellipsoid", (0.060, 0.066, 0.060), (0.0, 0.0, 0.0), "spg_shell"),
+    ("right_shoulder_pitch_link", "ellipsoid", (0.060, 0.066, 0.060), (0.0, 0.0, 0.0), "spg_shell"),
+    ("left_shoulder_pitch_link", "box", (0.030, 0.014, 0.052), (0.045, 0.0, 0.0), "spg_amber"),
+    ("right_shoulder_pitch_link", "box", (0.030, 0.014, 0.052), (0.045, 0.0, 0.0), "spg_amber"),
+    ("left_knee_link", "box", (0.040, 0.048, 0.130), (0.020, 0.0, -0.130), "spg_shell"),
+    ("right_knee_link", "box", (0.040, 0.048, 0.130), (0.020, 0.0, -0.130), "spg_shell"),
+    ("left_knee_link", "box", (0.044, 0.014, 0.090), (0.020, 0.0, -0.130), "spg_amber"),
+    ("right_knee_link", "box", (0.044, 0.014, 0.090), (0.020, 0.0, -0.130), "spg_amber"),
+]
+_GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID,
+           "cylinder": mujoco.mjtGeom.mjGEOM_CYLINDER}
+
+
+def build_model(plate=True):
+    """SPG S1 외피(다크메탈 셸 + 앰버 액센트)를 비충돌 장식으로 입혀 컴파일.
+    plate=False면 순정 G1(외피 없음). 외피는 시각 전용이라 물리/학습에 영향 없음."""
     if not plate:
         return mujoco.MjModel.from_xml_path(SCENE)
     spec = mujoco.MjSpec.from_file(SCENE)
-    mat = spec.add_material(); mat.name = "spgplate"
-    mat.rgba = [0.05, 0.09, 0.18, 1.0]; mat.emission = 0.14
-    mat.specular = 0.3; mat.shininess = 0.3
-    g = spec.body("torso_link").add_geom()
-    g.name = "spgplate"; g.type = mujoco.mjtGeom.mjGEOM_BOX
-    g.size = [0.004, 0.10, 0.062]; g.pos = [0.128, 0.0, 0.02]
-    g.material = "spgplate"; g.contype = 0; g.conaffinity = 0; g.group = 2
+
+    def addmat(name, rgba, emission, spec_v, shin, refl=0.3):
+        mt = spec.add_material(); mt.name = name
+        mt.rgba = rgba; mt.emission = emission
+        mt.specular = spec_v; mt.shininess = shin; mt.reflectance = refl
+    addmat("spg_shell", [0.06, 0.08, 0.13, 1.0], 0.05, 0.8, 0.8, 0.5)   # 다크 네이비 메탈
+    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.55, 0.5, 0.4)          # 시그니처 앰버
+    addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4)         # 발광 코어
+    for i, (body, typ, size, pos, mat) in enumerate(_SKIN):
+        try:
+            b = spec.body(body)
+        except Exception:
+            continue
+        if b is None:
+            continue
+        g = b.add_geom()
+        g.name = "spgskin_%d" % i
+        g.type = _GEOM_T[typ]; g.size = list(size); g.pos = list(pos)
+        g.material = mat; g.contype = 0; g.conaffinity = 0; g.group = 2
     return spec.compile()
 
 
@@ -212,7 +247,7 @@ class G1Env(gym.Env):
     · 보상 = 속도추종 + 직립/높이 + 발스윙높이/접지패턴/미끄럼방지/다리벌어짐방지 + 부드러움.
     · 종료 = 골반 낮음 or 과도한 기울기. (레퍼런스/RSI 없음 → 레퍼런스 계열 버그 원천 제거)
     """
-    def __init__(self, plate=False):
+    def __init__(self, plate=True):     # SPG S1 외피 기본 적용(시각 전용·물리 불변)
         self.m = build_model(plate)
         self.d = mujoco.MjData(self.m)
         self.lo = self.m.actuator_ctrlrange[:, 0].copy()
@@ -391,18 +426,19 @@ def policy_action(obs):
 # ---------------------------------------------------------------------------
 # G1 리스킨(파란 금속) + unitree 로고 제거 + 카메라 투영(브랜딩 텍스트 배치)
 def restyle(model):
-    BODY = (0.20, 0.40, 0.70, 1.0); DARK = (0.08, 0.12, 0.20, 1.0)
+    """SPG S1 다크 건메탈 바디 + 앰버 액센트(외피는 build_model에서 색 지정)."""
+    BODY = (0.11, 0.13, 0.17, 1.0); DARK = (0.04, 0.05, 0.07, 1.0)   # 다크 건메탈
     for name, rgba in [("metal", BODY), ("black", DARK)]:
         i = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, name)
         if i >= 0:
             model.mat_rgba[i] = rgba
-            model.mat_specular[i] = 0.7; model.mat_shininess[i] = 0.6
-            model.mat_reflectance[i] = 0.3
+            model.mat_specular[i] = 0.85; model.mat_shininess[i] = 0.75
+            model.mat_reflectance[i] = 0.45
     lm = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MESH, "logo_link")
     for g in range(model.ngeom):
         if model.geom_dataid[g] == lm:            # unitree 로고 메시 숨김
             model.geom_matid[g] = -1
-            model.geom_rgba[g] = (0.20, 0.40, 0.70, 0.0)
+            model.geom_rgba[g] = (0.11, 0.13, 0.17, 0.0)
 
 
 def cam_pos(cam):

@@ -42,7 +42,7 @@ def view_reference(record=None, seconds=20.0):
     import mujoco
     import pygame
 
-    m = g1.build_model(False)
+    m = g1.build_model(True)     # SPG S1 외피 적용
     m.vis.global_.offwidth = max(g1.RENDER_W, 640)
     m.vis.global_.offheight = max(g1.RENDER_H, 480)
     g1.restyle(m)
