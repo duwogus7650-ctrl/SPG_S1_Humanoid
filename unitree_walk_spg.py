@@ -15,6 +15,7 @@ Humanoid(딥네이비+앰버)로 합성한다.
 """
 
 import os
+import sys
 import math
 import argparse
 import urllib.request
@@ -24,6 +25,8 @@ import mujoco
 
 HERE = Path(__file__).resolve().parent
 ASSET = HERE / "unitree_g1"
+sys.path.insert(0, str(HERE))
+import spg_skin                      # SPG S1 외피(헬멧·바이저·다크네이비·로고제거) 공유 헬퍼
 REPO = "https://raw.githubusercontent.com/unitreerobotics/unitree_rl_gym/main"
 MODEL_DIR = REPO + "/resources/robots/g1_description"
 MOTION_URL = REPO + "/deploy/pre_train/g1/motion.pt"
@@ -101,7 +104,7 @@ def main():
     import pygame
 
     scene_path, motion_path = ensure_assets(need_motion=not args.selftest)
-    m = mujoco.MjModel.from_xml_path(str(scene_path)); d = mujoco.MjData(m)
+    m = spg_skin.build(str(scene_path)); d = mujoco.MjData(m)   # SPG 외피 적용(시각 전용·물리 불변)
     m.opt.timestep = SIM_DT
     # 초기 자세: 다리 기본각 + 발을 바닥에
     if m.nkey > 0:

@@ -13,3 +13,10 @@
   훨씬 자연스럽게 감긴다.
 - **Windows MuJoCo 오프스크린**: `MUJOCO_GL=osmesa`는 무효 → 기본 GL 사용. 패키지 scene의
   오프스크린 프레임버퍼가 640×480이라 렌더 크기를 그 이하로.
+- **한 레포에 모델이 2종이면 외피/스타일 코드도 갈린다.** 풀 G1(torso_link, named material)과
+  Unitree 12-dof(pelvis 용접, geom rgba)는 좌표·색지정 방식이 달라 모델별 측정·경로가 필요.
+  공유 가능한 12-dof 로직은 `spg_skin.py`로, deploy처럼 외부 레포에 단독 복사되는 파일은
+  로컬 모듈 import 금지 → 인라인 + 안전 폴백(try/except).
+- **스타일이 build_model(spec)과 restyle(model) 두 곳에 흩어지면 프리뷰≠실제가 된다.**
+  recolor/로고는 모든 뷰어가 공통 호출하는 restyle(단일 소스)에 두고, 프리뷰 도구(render_skin)도
+  같은 build_model+restyle 경로를 타게 해 승인본=실제 렌더를 보장.

@@ -218,22 +218,8 @@ def build_model(plate=True):
     addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비(응집)
     addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.4)          # 시그니처 앰버(#FFB000, 글로우 절제)
     addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4)         # 발광 코어
-    # 몸통 recolor(색만): 순정 G1 머티리얼(metal 실버·black)을 다크네이비 메탈로.
-    #  geom 추가/형상 변경 없음 → 물리 100% 불변. 헬멧(spg_shell)보다 약간 밝아 형태가 읽힘.
-    _RECOLOR = {
-        "metal": ([0.105, 0.145, 0.225, 1.0], 0.45, 0.55, 0.18),  # 본체 다크네이비 스틸
-        "black": ([0.040, 0.055, 0.090, 1.0], 0.30, 0.45, 0.10),  # 말단·로고 near-black 네이비
-    }
-    for mt in spec.materials:
-        if mt.name in _RECOLOR:
-            rgba, sp, sh, rf = _RECOLOR[mt.name]
-            mt.rgba = rgba; mt.specular = sp; mt.shininess = sh; mt.reflectance = rf
-    # UNITREE 로고 제거: logo_link geom을 완전 투명화(alpha=0) → 양각 음영까지 사라짐.
-    #  색일치만으론 돋을새김이 조명에 비쳐 글자가 남아 투명 처리. 가슴엔 _SKIN의 SPG 코어 마크가 대신.
-    for g in spec.geoms:
-        if getattr(g, "meshname", "") == "logo_link":
-            g.material = ""
-            g.rgba = [0.0, 0.0, 0.0, 0.0]
+    # 몸통 recolor(다크네이비)·UNITREE 로고 제거는 restyle()에서 모델 레벨로 일괄 처리한다
+    # (모든 뷰어가 build_model 후 restyle를 호출 → 단일 소스). build_model은 외피 geom만 추가.
     for i, (body, typ, size, pos, mat) in enumerate(_SKIN):
         try:
             b = spec.body(body)
@@ -434,19 +420,21 @@ def policy_action(obs):
 # ---------------------------------------------------------------------------
 # G1 리스킨(파란 금속) + unitree 로고 제거 + 카메라 투영(브랜딩 텍스트 배치)
 def restyle(model):
-    """SPG S1 다크 건메탈 바디 + 앰버 액센트(외피는 build_model에서 색 지정)."""
-    BODY = (0.11, 0.13, 0.17, 1.0); DARK = (0.04, 0.05, 0.07, 1.0)   # 다크 건메탈
-    for name, rgba in [("metal", BODY), ("black", DARK)]:
+    """SPG S1 다크네이비 바디 + UNITREE 로고 제거(외피 색은 build_model에서 지정).
+    모든 뷰어가 build_model 후 호출하는 몸통 색 단일 소스. 색만 변경 → 물리 불변."""
+    BODY = (0.105, 0.145, 0.225, 1.0); DARK = (0.040, 0.055, 0.090, 1.0)   # 다크네이비 스틸
+    for name, rgba, sp, sh, rf in [("metal", BODY, 0.45, 0.55, 0.18),
+                                   ("black", DARK, 0.30, 0.45, 0.10)]:
         i = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, name)
         if i >= 0:
             model.mat_rgba[i] = rgba
-            model.mat_specular[i] = 0.85; model.mat_shininess[i] = 0.75
-            model.mat_reflectance[i] = 0.45
+            model.mat_specular[i] = sp; model.mat_shininess[i] = sh
+            model.mat_reflectance[i] = rf
     lm = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MESH, "logo_link")
     for g in range(model.ngeom):
-        if model.geom_dataid[g] == lm:            # unitree 로고 메시 숨김
+        if model.geom_dataid[g] == lm:            # UNITREE 로고 메시 숨김(투명)
             model.geom_matid[g] = -1
-            model.geom_rgba[g] = (0.11, 0.13, 0.17, 0.0)
+            model.geom_rgba[g] = (0.0, 0.0, 0.0, 0.0)
 
 
 def cam_pos(cam):

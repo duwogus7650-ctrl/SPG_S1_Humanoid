@@ -41,6 +41,46 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
     return (target_q - q) * kp + (target_dq - dq) * kd
 
 
+def spg_build(xml_path):
+    """SPG S1 외피를 입혀 컴파일(헬멧·바이저·가슴코어 + 다크네이비 recolor + 로고 제거).
+    ※ 이 파일은 Unitree 레포에 단독 복사돼 실행되므로 spg_skin.py를 import하지 않고 인라인.
+       (저장소 내 spg_skin.build와 동일 로직/좌표.) 시각 전용·물리 불변. 실패 시 순정 폴백."""
+    try:
+        spec = mujoco.MjSpec.from_file(str(xml_path))
+
+        def addmat(name, rgba, em, sp, sh, rf):
+            mt = spec.add_material(); mt.name = name
+            mt.rgba = rgba; mt.emission = em; mt.specular = sp
+            mt.shininess = sh; mt.reflectance = rf
+        addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)
+        addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.40, 0.3)
+        addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)
+        BODY = [0.105, 0.145, 0.225, 1.0]; DARK = [0.040, 0.055, 0.090, 1.0]
+        for g in spec.geoms:
+            if getattr(g, "meshname", "") == "logo_link":
+                g.rgba = [0.0, 0.0, 0.0, 0.0]; continue
+            if g.material:
+                continue
+            r = list(g.rgba)
+            if abs(r[0] - 0.7) < 0.06 and abs(r[1] - 0.7) < 0.06:
+                g.rgba = BODY
+            elif abs(r[0] - 0.2) < 0.06 and abs(r[1] - 0.2) < 0.06:
+                g.rgba = DARK
+        GT = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
+        SKIN = [("ellipsoid", (0.086, 0.092, 0.115), (0.010, 0.0, 0.428), "spg_shell"),
+                ("ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.449), "spg_amber"),
+                ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_core")]
+        b = spec.body("pelvis")
+        for i, (typ, size, pos, mat) in enumerate(SKIN):
+            gg = b.add_geom(); gg.name = "spgskin_%d" % i
+            gg.type = GT[typ]; gg.size = list(size); gg.pos = list(pos)
+            gg.material = mat; gg.contype = 0; gg.conaffinity = 0; gg.group = 2
+        return spec.compile()
+    except Exception as e:
+        print(f"[spg] 외피 적용 실패(순정 모델로 폴백): {e}", flush=True)
+        return mujoco.MjModel.from_xml_path(str(xml_path))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("config_file", type=str)
@@ -69,7 +109,7 @@ def main():
     target_dof_pos = default_angles.copy(); obs = np.zeros(num_obs, dtype=np.float32)
     counter = 0
 
-    m = mujoco.MjModel.from_xml_path(xml_path); d = mujoco.MjData(m)
+    m = spg_build(xml_path); d = mujoco.MjData(m)          # SPG 외피(시각 전용·물리 불변)
     m.opt.timestep = simulation_dt
     m.vis.global_.offwidth = max(RW, 640); m.vis.global_.offheight = max(RH, 480)
     policy = torch.jit.load(policy_path)          # ← 사용자 PC에서 외부 정책 로드

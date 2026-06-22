@@ -35,6 +35,7 @@ def render(m, d, cam_kw, w=640, h=480):
 def main():
     g1 = load_g1()
     m = g1.build_model(plate=True)
+    g1.restyle(m)                 # 뷰어와 동일: 몸통 다크네이비 + 로고 제거(모델 레벨)
     d = mujoco.MjData(m)
     if m.nkey > 0:
         mujoco.mj_resetDataKeyframe(m, d, 0)
