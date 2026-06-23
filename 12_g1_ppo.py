@@ -200,8 +200,7 @@ _SKIN = [
     ("torso_link", "ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.405), "spg_amber"),  # 앰버 바이저 렌즈(헬멧 앞면에 감김)
     ("torso_link", "box",       (0.010, 0.0075, 0.030), (0.082, 0.0, 0.250), "spg_core"),  # SPG 가슴 코어 마크(글로잉 앰버)
 ]
-_GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID,
-           "cylinder": mujoco.mjtGeom.mjGEOM_CYLINDER}
+_GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
 
 
 def build_model(plate=True):
@@ -216,21 +215,26 @@ def build_model(plate=True):
         mt.rgba = rgba; mt.emission = emission
         mt.specular = spec_v; mt.shininess = shin; mt.reflectance = refl
     addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비(응집)
-    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.4)          # 시그니처 앰버(#FFB000, 글로우 절제)
-    addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4)         # 발광 코어
+    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.4, 0.3)     # 시그니처 앰버(#FFB000, 글로우 절제)
+    addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4, 0.3)    # 발광 코어
     # 몸통 recolor(다크네이비)·UNITREE 로고 제거는 restyle()에서 모델 레벨로 일괄 처리한다
     # (모든 뷰어가 build_model 후 restyle를 호출 → 단일 소스). build_model은 외피 geom만 추가.
+    added = 0
     for i, (body, typ, size, pos, mat) in enumerate(_SKIN):
         try:
             b = spec.body(body)
         except Exception:
-            continue
-        if b is None:
+            b = None
+        if b is None:                     # mujoco 3.9: 없는 바디명은 None 반환(예외 아님)
             continue
         g = b.add_geom()
         g.name = "spgskin_%d" % i
         g.type = _GEOM_T[typ]; g.size = list(size); g.pos = list(pos)
         g.material = mat; g.contype = 0; g.conaffinity = 0; g.group = 2
+        g.density = 0.0                    # 무질량 보장(inertiafromgeom=true여도 물리 불변)
+        added += 1
+    if added != len(_SKIN):               # 바디명이 바뀌면 외피가 조용히 사라지므로 시끄럽게 경고
+        print("[SPG][warn] 외피 geom %d/%d만 부착 — 바디명 변경?" % (added, len(_SKIN)), flush=True)
     return spec.compile()
 
 
@@ -418,7 +422,7 @@ def policy_action(obs):
 
 
 # ---------------------------------------------------------------------------
-# G1 리스킨(파란 금속) + unitree 로고 제거 + 카메라 투영(브랜딩 텍스트 배치)
+# G1 리스킨(다크네이비) + UNITREE 로고 제거 + 카메라 투영(브랜딩 텍스트 배치)
 def restyle(model):
     """SPG S1 다크네이비 바디 + UNITREE 로고 제거(외피 색은 build_model에서 지정).
     모든 뷰어가 build_model 후 호출하는 몸통 색 단일 소스. 색만 변경 → 물리 불변."""
@@ -563,7 +567,7 @@ def main():
     disp = G1Env()
     disp.m.vis.global_.offwidth = max(RENDER_W, 640)
     disp.m.vis.global_.offheight = max(RENDER_H, 480)
-    restyle(disp.m)                       # 파란 금속 리스킨 + unitree 로고 제거
+    restyle(disp.m)                       # 다크네이비 리스킨 + UNITREE 로고 제거
     obs, _ = disp.reset()
     renderer = mujoco.Renderer(disp.m, RENDER_H, RENDER_W)
     cam = mujoco.MjvCamera()

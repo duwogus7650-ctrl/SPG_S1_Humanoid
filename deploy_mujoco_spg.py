@@ -56,16 +56,23 @@ def spg_build(xml_path):
         addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.40, 0.3)
         addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)
         BODY = [0.105, 0.145, 0.225, 1.0]; DARK = [0.040, 0.055, 0.090, 1.0]
+        addmat("spg_body", BODY, 0.0, 0.45, 0.55, 0.18)   # 풀 G1 restyle와 동일 광택
+        addmat("spg_dark", DARK, 0.0, 0.30, 0.45, 0.10)
+        unmatched = 0
         for g in spec.geoms:
             if getattr(g, "meshname", "") == "logo_link":
-                g.rgba = [0.0, 0.0, 0.0, 0.0]; continue
+                g.material = ""; g.rgba = [0.0, 0.0, 0.0, 0.0]; continue
             if g.material:
                 continue
             r = list(g.rgba)
-            if abs(r[0] - 0.7) < 0.06 and abs(r[1] - 0.7) < 0.06:
-                g.rgba = BODY
+            if abs(r[0] - 0.7) < 0.06 and abs(r[1] - 0.7) < 0.06:   # geom rgba가 material 색을 덮으므로 둘 다 지정
+                g.material = "spg_body"; g.rgba = BODY
             elif abs(r[0] - 0.2) < 0.06 and abs(r[1] - 0.2) < 0.06:
-                g.rgba = DARK
+                g.material = "spg_dark"; g.rgba = DARK
+            else:
+                unmatched += 1
+        if unmatched:
+            print("[spg] WARN recolor 미매칭 robot geom %d개 — 업스트림 rgba 변경?" % unmatched, flush=True)
         GT = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
         SKIN = [("ellipsoid", (0.086, 0.092, 0.115), (0.010, 0.0, 0.428), "spg_shell"),
                 ("ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.449), "spg_amber"),

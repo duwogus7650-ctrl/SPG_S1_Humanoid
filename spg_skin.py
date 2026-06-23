@@ -36,18 +36,28 @@ def build(xml_path):
     addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비 헬멧
     addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.40, 0.3)        # 시그니처 앰버(#FFB000)
     addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)       # 발광 코어
+    # 몸통 재질: 풀 G1 restyle의 metal/black과 동일 광택(reflectance 포함)으로 통일
+    addmat("spg_body", _BODY, 0.0, 0.45, 0.55, 0.18)   # 본체 다크네이비 스틸
+    addmat("spg_dark", _DARK, 0.0, 0.30, 0.45, 0.10)   # 말단 near-black 네이비
 
-    # 몸통 recolor + 로고 제거(rgba 매칭; floor는 material='grid'라 건드리지 않음)
+    # 몸통 recolor + 로고 제거. 12-dof는 named material이 없어 rgba로 매칭하되, spg_body/
+    #  spg_dark 재질을 부여해 풀 G1과 같은 금속 광택을 준다. floor(material='grid')는 제외.
+    unmatched = 0
     for g in spec.geoms:
         if getattr(g, "meshname", "") == "logo_link":   # UNITREE 로고 투명화
-            g.rgba = [0.0, 0.0, 0.0, 0.0]; continue
+            g.material = ""; g.rgba = [0.0, 0.0, 0.0, 0.0]; continue
         if g.material:                                   # 머티리얼 지정 geom(floor/grid)은 제외
             continue
         r = list(g.rgba)
+        # geom의 원래 rgba가 기본값과 다르면 material 색을 덮으므로, 색(rgba)과 재질을 함께 지정.
         if abs(r[0] - 0.7) < 0.06 and abs(r[1] - 0.7) < 0.06:      # 실버 → 네이비
-            g.rgba = _BODY
+            g.material = "spg_body"; g.rgba = _BODY
         elif abs(r[0] - 0.2) < 0.06 and abs(r[1] - 0.2) < 0.06:    # 다크 → near-black 네이비
-            g.rgba = _DARK
+            g.material = "spg_dark"; g.rgba = _DARK
+        else:
+            unmatched += 1                               # 업스트림 rgba 변경 시 시끄럽게 경고
+    if unmatched:
+        print("[SPG][warn] recolor 미매칭 robot geom %d개 — 업스트림 rgba 변경?" % unmatched, flush=True)
 
     # 헬멧/바이저/코어 외피를 pelvis에 추가(비충돌·무질량)
     b = spec.body("pelvis")
@@ -55,4 +65,5 @@ def build(xml_path):
         gg = b.add_geom(); gg.name = "spgskin_%d" % i
         gg.type = _GT[typ]; gg.size = list(size); gg.pos = list(pos)
         gg.material = mat; gg.contype = 0; gg.conaffinity = 0; gg.group = 2
+        gg.density = 0.0                                  # 무질량 보장(inertiafromgeom=true 대비)
     return spec.compile()

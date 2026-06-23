@@ -18,7 +18,7 @@ def load_g1():
 def head_world(m, d):
     tid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_BODY, "torso_link")
     tpos = d.xpos[tid].copy(); tR = d.xmat[tid].reshape(3, 3).copy()
-    # head_link 메시 중심(로컬 0.012,0,0.384)을 월드로
+    # 헬멧 셸(_SKIN) 로컬 좌표(0.012,0,0.384)를 월드로 — 머리 클로즈업 카메라 lookat
     return tpos + tR @ np.array([0.012, 0.0, 0.384])
 
 def render(m, d, cam_kw, w=640, h=480):
