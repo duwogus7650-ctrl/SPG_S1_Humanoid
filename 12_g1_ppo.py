@@ -192,19 +192,21 @@ C_CURVE_BEST = (255, 176, 0); C_CURVE_AVG = (120, 165, 230)
 # ---------------------------------------------------------------------------
 # SPG S1 외피(시각 전용·비충돌·무질량) — (바디, 타입, size, pos, 재질).
 #  물리 불변: contype/conaffinity=0(충돌X), 바디는 명시 inertial 보유(질량 불변).
-# 몸통은 원래 G1 형상 그대로. 머리만 SPG 헬멧+바이저로 변경.
-#  좌표는 torso_link 로컬 프레임(실측): head_link 메시 z=0.281~0.487(중심 0.384),
-#  폭 ±0.078, 앞면 x=+0.078 — 헬멧 돔은 폭을 줄여 슬림하게 밀착, 바이저는 눈높이 가는 슬릿.
+# 몸통은 원래 G1 형상 그대로. 머리만 SPG 헬멧+바이저(테크 디테일)로 변경.
+#  좌표는 torso_link 로컬 프레임(실측): head_link 메시 z=0.281~0.487(중심 0.384), 폭 ±0.078, 앞면 x=+0.078.
+#  슬림 건메탈 돔 + 다크 글로스 바이저 소켓 + 일렉트릭 블루 슬릿 + 정수리 크레스트 리지.
 _SKIN = [
-    ("torso_link", "ellipsoid", (0.076, 0.074, 0.104), (0.016, 0.0, 0.382), "spg_shell"),  # 헬멧 돔(슬림·머리 밀착)
-    ("torso_link", "ellipsoid", (0.038, 0.054, 0.010), (0.062, 0.0, 0.392), "spg_amber"),  # 가는 앰버 바이저 슬릿
-    ("torso_link", "box",       (0.010, 0.0075, 0.030), (0.082, 0.0, 0.250), "spg_core"),  # SPG 가슴 코어 마크(글로잉 앰버)
+    ("torso_link", "ellipsoid", (0.076, 0.074, 0.104),  (0.016, 0.0, 0.382), "spg_shell"),   # 헬멧 돔(슬림 건메탈)
+    ("torso_link", "ellipsoid", (0.050, 0.062, 0.018),  (0.052, 0.0, 0.392), "spg_visor"),   # 다크 글로스 바이저 소켓
+    ("torso_link", "ellipsoid", (0.030, 0.052, 0.0085), (0.082, 0.0, 0.392), "spg_accent"),  # 일렉트릭 블루 바이저 슬릿
+    ("torso_link", "ellipsoid", (0.050, 0.0065, 0.011), (0.028, 0.0, 0.460), "spg_crest"),   # 정수리 크레스트 리지(테크)
+    ("torso_link", "box",       (0.010, 0.0075, 0.030), (0.082, 0.0, 0.250), "spg_accent"),  # SPG 가슴 코어 마크(블루)
 ]
 _GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
 
 
 def build_model(plate=True):
-    """SPG S1 외피(다크메탈 셸 + 앰버 액센트)를 비충돌 장식으로 입혀 컴파일.
+    """SPG S1 외피(건메탈 셸 + 일렉트릭 블루 액센트)를 비충돌 장식으로 입혀 컴파일.
     plate=False면 순정 G1(외피 없음). 외피는 시각 전용이라 물리/학습에 영향 없음."""
     if not plate:
         return mujoco.MjModel.from_xml_path(SCENE)
@@ -214,10 +216,11 @@ def build_model(plate=True):
         mt = spec.add_material(); mt.name = name
         mt.rgba = rgba; mt.emission = emission
         mt.specular = spec_v; mt.shininess = shin; mt.reflectance = refl
-    addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비(응집)
-    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.35, 0.5, 0.4, 0.3)     # 시그니처 앰버(#FFB000, 가는 슬릿)
-    addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4, 0.3)    # 발광 코어
-    # 몸통 recolor(다크네이비)·UNITREE 로고 제거는 restyle()에서 모델 레벨로 일괄 처리한다
+    addmat("spg_shell",  [0.115, 0.130, 0.150, 1.0], 0.0, 0.50, 0.60, 0.25)  # 건메탈 헬멧
+    addmat("spg_visor",  [0.030, 0.035, 0.045, 1.0], 0.0, 0.85, 0.90, 0.35)  # 다크 글로스 바이저 소켓
+    addmat("spg_accent", [0.15, 0.45, 1.0, 1.0],     0.60, 0.60, 0.50, 0.30) # 일렉트릭 블루(발광: 슬릿·코어)
+    addmat("spg_crest",  [0.20, 0.22, 0.265, 1.0],   0.0, 0.25, 0.40, 0.15)  # 밝은 건메탈 패널(크레스트)
+    # 몸통 recolor(건메탈)·UNITREE 로고 제거는 restyle()에서 모델 레벨로 일괄 처리한다
     # (모든 뷰어가 build_model 후 restyle를 호출 → 단일 소스). build_model은 외피 geom만 추가.
     added = 0
     for i, (body, typ, size, pos, mat) in enumerate(_SKIN):
@@ -422,13 +425,13 @@ def policy_action(obs):
 
 
 # ---------------------------------------------------------------------------
-# G1 리스킨(다크네이비) + UNITREE 로고 제거 + 카메라 투영(브랜딩 텍스트 배치)
+# G1 리스킨(건메탈) + UNITREE 로고 제거 + 카메라 투영(브랜딩 텍스트 배치)
 def restyle(model):
-    """SPG S1 다크네이비 바디 + UNITREE 로고 제거(외피 색은 build_model에서 지정).
+    """SPG S1 건메탈 바디 + UNITREE 로고 제거(외피 색은 build_model에서 지정).
     모든 뷰어가 build_model 후 호출하는 몸통 색 단일 소스. 색만 변경 → 물리 불변."""
-    BODY = (0.105, 0.145, 0.225, 1.0); DARK = (0.040, 0.055, 0.090, 1.0)   # 다크네이비 스틸
-    for name, rgba, sp, sh, rf in [("metal", BODY, 0.45, 0.55, 0.18),
-                                   ("black", DARK, 0.30, 0.45, 0.10)]:
+    BODY = (0.165, 0.185, 0.215, 1.0); DARK = (0.070, 0.080, 0.095, 1.0)   # 건메탈 다크 그레이
+    for name, rgba, sp, sh, rf in [("metal", BODY, 0.55, 0.60, 0.22),
+                                   ("black", DARK, 0.40, 0.50, 0.12)]:
         i = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, name)
         if i >= 0:
             model.mat_rgba[i] = rgba
@@ -567,7 +570,7 @@ def main():
     disp = G1Env()
     disp.m.vis.global_.offwidth = max(RENDER_W, 640)
     disp.m.vis.global_.offheight = max(RENDER_H, 480)
-    restyle(disp.m)                       # 다크네이비 리스킨 + UNITREE 로고 제거
+    restyle(disp.m)                       # 건메탈 리스킨 + UNITREE 로고 제거
     obs, _ = disp.reset()
     renderer = mujoco.Renderer(disp.m, RENDER_H, RENDER_W)
     cam = mujoco.MjvCamera()

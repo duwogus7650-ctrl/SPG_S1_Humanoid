@@ -42,7 +42,7 @@ def pd_control(target_q, q, kp, target_dq, dq, kd):
 
 
 def spg_build(xml_path):
-    """SPG S1 외피를 입혀 컴파일(헬멧·바이저·가슴코어 + 다크네이비 recolor + 로고 제거).
+    """SPG S1 외피를 입혀 컴파일(건메탈 헬멧·블루 바이저·크레스트 + 건메탈 recolor + 로고 제거).
     ※ 이 파일은 Unitree 레포에 단독 복사돼 실행되므로 spg_skin.py를 import하지 않고 인라인.
        (저장소 내 spg_skin.build와 동일 로직/좌표.) 시각 전용·물리 불변. 실패 시 순정 폴백."""
     try:
@@ -52,12 +52,13 @@ def spg_build(xml_path):
             mt = spec.add_material(); mt.name = name
             mt.rgba = rgba; mt.emission = em; mt.specular = sp
             mt.shininess = sh; mt.reflectance = rf
-        addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)
-        addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.35, 0.5, 0.40, 0.3)
-        addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)
-        BODY = [0.105, 0.145, 0.225, 1.0]; DARK = [0.040, 0.055, 0.090, 1.0]
-        addmat("spg_body", BODY, 0.0, 0.45, 0.55, 0.18)   # 풀 G1 restyle와 동일 광택
-        addmat("spg_dark", DARK, 0.0, 0.30, 0.45, 0.10)
+        addmat("spg_shell",  [0.115, 0.130, 0.150, 1.0], 0.0, 0.50, 0.60, 0.25)
+        addmat("spg_visor",  [0.030, 0.035, 0.045, 1.0], 0.0, 0.85, 0.90, 0.35)
+        addmat("spg_accent", [0.15, 0.45, 1.0, 1.0],     0.60, 0.60, 0.50, 0.30)
+        addmat("spg_crest",  [0.20, 0.22, 0.265, 1.0],   0.0, 0.25, 0.40, 0.15)
+        BODY = [0.165, 0.185, 0.215, 1.0]; DARK = [0.070, 0.080, 0.095, 1.0]
+        addmat("spg_body", BODY, 0.0, 0.55, 0.60, 0.22)   # 풀 G1 restyle와 동일 광택(건메탈)
+        addmat("spg_dark", DARK, 0.0, 0.40, 0.50, 0.12)
         unmatched = 0
         for g in spec.geoms:
             if getattr(g, "meshname", "") == "logo_link":
@@ -74,9 +75,11 @@ def spg_build(xml_path):
         if unmatched:
             print("[spg] WARN recolor 미매칭 robot geom %d개 — 업스트림 rgba 변경?" % unmatched, flush=True)
         GT = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
-        SKIN = [("ellipsoid", (0.076, 0.074, 0.104), (0.014, 0.0, 0.426), "spg_shell"),
-                ("ellipsoid", (0.038, 0.054, 0.010), (0.062, 0.0, 0.436), "spg_amber"),
-                ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_core")]
+        SKIN = [("ellipsoid", (0.076, 0.074, 0.104),  (0.014, 0.0, 0.426), "spg_shell"),
+                ("ellipsoid", (0.050, 0.062, 0.018),  (0.050, 0.0, 0.436), "spg_visor"),
+                ("ellipsoid", (0.030, 0.052, 0.0085), (0.080, 0.0, 0.436), "spg_accent"),
+                ("ellipsoid", (0.050, 0.0065, 0.011), (0.026, 0.0, 0.504), "spg_crest"),
+                ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_accent")]
         b = spec.body("pelvis")
         for i, (typ, size, pos, mat) in enumerate(SKIN):
             gg = b.add_geom(); gg.name = "spgskin_%d" % i

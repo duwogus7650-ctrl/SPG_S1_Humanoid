@@ -7,20 +7,22 @@ SPG S1 외관을 입히는 공유 헬퍼. unitree_walk_spg.py / deploy_mujoco_sp
 → 그래서 12번 _SKIN(torso_link 프레임)을 그대로 못 쓰고 이 모듈이 pelvis 프레임으로 처리한다.
 
 적용 내용(전부 시각 전용·물리 불변):
- · 헬멧 돔 + 앰버 바이저 렌즈 + 가슴 앰버 코어 geom을 pelvis에 추가(비충돌·무질량)
- · 몸통 geom rgba를 다크네이비로 recolor, UNITREE 로고(logo_link) 투명화
+ · 슬림 건메탈 돔 + 다크 글로스 바이저 소켓 + 블루 슬릿/코어 + 정수리 크레스트 geom을 pelvis에 추가
+ · 몸통 geom을 건메탈로 recolor, UNITREE 로고(logo_link) 투명화
 물리 불변: 추가 geom은 contype=conaffinity=0이고, 바디에 명시 inertial이 있어 질량/관성 무영향.
 """
 import mujoco
 
 # SPG 팔레트(12번 restyle/build_model과 동일하게 유지) ----------------------------
-_BODY = [0.105, 0.145, 0.225, 1.0]   # 본체 다크네이비 스틸
-_DARK = [0.040, 0.055, 0.090, 1.0]   # 말단 near-black 네이비
-# pelvis 로컬 프레임 외피(실측 좌표) — (타입, size, pos, 재질)
+_BODY = [0.165, 0.185, 0.215, 1.0]   # 본체 건메탈 다크 그레이
+_DARK = [0.070, 0.080, 0.095, 1.0]   # 말단 near-black 건메탈
+# pelvis 로컬 프레임 외피(실측 좌표) — (타입, size, pos, 재질). z = 풀G1(torso 프레임) + 0.044
 _SKIN = [
-    ("ellipsoid", (0.076, 0.074, 0.104), (0.014, 0.0, 0.426), "spg_shell"),  # 헬멧 돔(슬림·머리 밀착)
-    ("ellipsoid", (0.038, 0.054, 0.010), (0.062, 0.0, 0.436), "spg_amber"),  # 가는 앰버 바이저 슬릿
-    ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_core"),  # SPG 가슴 코어 마크
+    ("ellipsoid", (0.076, 0.074, 0.104),  (0.014, 0.0, 0.426), "spg_shell"),   # 헬멧 돔(슬림 건메탈)
+    ("ellipsoid", (0.050, 0.062, 0.018),  (0.050, 0.0, 0.436), "spg_visor"),   # 다크 글로스 바이저 소켓
+    ("ellipsoid", (0.030, 0.052, 0.0085), (0.080, 0.0, 0.436), "spg_accent"),  # 일렉트릭 블루 바이저 슬릿
+    ("ellipsoid", (0.050, 0.0065, 0.011), (0.026, 0.0, 0.504), "spg_crest"),   # 정수리 크레스트 리지(테크)
+    ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_accent"),  # SPG 가슴 코어 마크(블루)
 ]
 _GT = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
 
@@ -33,12 +35,13 @@ def build(xml_path):
         mt = spec.add_material(); mt.name = name
         mt.rgba = rgba; mt.emission = em; mt.specular = sp
         mt.shininess = sh; mt.reflectance = rf
-    addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비 헬멧
-    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.35, 0.5, 0.40, 0.3)        # 시그니처 앰버(#FFB000, 가는 슬릿)
-    addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)       # 발광 코어
+    addmat("spg_shell",  [0.115, 0.130, 0.150, 1.0], 0.0, 0.50, 0.60, 0.25)  # 건메탈 헬멧
+    addmat("spg_visor",  [0.030, 0.035, 0.045, 1.0], 0.0, 0.85, 0.90, 0.35)  # 다크 글로스 바이저 소켓
+    addmat("spg_accent", [0.15, 0.45, 1.0, 1.0],     0.60, 0.60, 0.50, 0.30) # 일렉트릭 블루(발광: 슬릿·코어)
+    addmat("spg_crest",  [0.20, 0.22, 0.265, 1.0],   0.0, 0.25, 0.40, 0.15)  # 밝은 건메탈 패널(크레스트)
     # 몸통 재질: 풀 G1 restyle의 metal/black과 동일 광택(reflectance 포함)으로 통일
-    addmat("spg_body", _BODY, 0.0, 0.45, 0.55, 0.18)   # 본체 다크네이비 스틸
-    addmat("spg_dark", _DARK, 0.0, 0.30, 0.45, 0.10)   # 말단 near-black 네이비
+    addmat("spg_body", _BODY, 0.0, 0.55, 0.60, 0.22)   # 본체 건메탈 다크 그레이
+    addmat("spg_dark", _DARK, 0.0, 0.40, 0.50, 0.12)   # 말단 near-black 건메탈
 
     # 몸통 recolor + 로고 제거. 12-dof는 named material이 없어 rgba로 매칭하되, spg_body/
     #  spg_dark 재질을 부여해 풀 G1과 같은 금속 광택을 준다. floor(material='grid')는 제외.
