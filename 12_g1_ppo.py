@@ -194,10 +194,10 @@ C_CURVE_BEST = (255, 176, 0); C_CURVE_AVG = (120, 165, 230)
 #  물리 불변: contype/conaffinity=0(충돌X), 바디는 명시 inertial 보유(질량 불변).
 # 몸통은 원래 G1 형상 그대로. 머리만 SPG 헬멧+바이저로 변경.
 #  좌표는 torso_link 로컬 프레임(실측): head_link 메시 z=0.281~0.487(중심 0.384),
-#  폭 ±0.078, 앞면 x=+0.078 — 헬멧 돔을 머리에 정확히 씌우고 바이저는 눈높이 앞면에.
+#  폭 ±0.078, 앞면 x=+0.078 — 헬멧 돔은 폭을 줄여 슬림하게 밀착, 바이저는 눈높이 가는 슬릿.
 _SKIN = [
-    ("torso_link", "ellipsoid", (0.086, 0.092, 0.112), (0.012, 0.0, 0.384), "spg_shell"),  # 헬멧 돔(머리 셸)
-    ("torso_link", "ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.405), "spg_amber"),  # 앰버 바이저 렌즈(헬멧 앞면에 감김)
+    ("torso_link", "ellipsoid", (0.076, 0.074, 0.104), (0.016, 0.0, 0.382), "spg_shell"),  # 헬멧 돔(슬림·머리 밀착)
+    ("torso_link", "ellipsoid", (0.038, 0.054, 0.010), (0.062, 0.0, 0.392), "spg_amber"),  # 가는 앰버 바이저 슬릿
     ("torso_link", "box",       (0.010, 0.0075, 0.030), (0.082, 0.0, 0.250), "spg_core"),  # SPG 가슴 코어 마크(글로잉 앰버)
 ]
 _GEOM_T = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
@@ -215,7 +215,7 @@ def build_model(plate=True):
         mt.rgba = rgba; mt.emission = emission
         mt.specular = spec_v; mt.shininess = shin; mt.reflectance = refl
     addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비(응집)
-    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.4, 0.3)     # 시그니처 앰버(#FFB000, 글로우 절제)
+    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.35, 0.5, 0.4, 0.3)     # 시그니처 앰버(#FFB000, 가는 슬릿)
     addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.4, 0.3)    # 발광 코어
     # 몸통 recolor(다크네이비)·UNITREE 로고 제거는 restyle()에서 모델 레벨로 일괄 처리한다
     # (모든 뷰어가 build_model 후 restyle를 호출 → 단일 소스). build_model은 외피 geom만 추가.

@@ -18,8 +18,8 @@ _BODY = [0.105, 0.145, 0.225, 1.0]   # 본체 다크네이비 스틸
 _DARK = [0.040, 0.055, 0.090, 1.0]   # 말단 near-black 네이비
 # pelvis 로컬 프레임 외피(실측 좌표) — (타입, size, pos, 재질)
 _SKIN = [
-    ("ellipsoid", (0.086, 0.092, 0.115), (0.010, 0.0, 0.428), "spg_shell"),  # 헬멧 돔(머리 셸)
-    ("ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.449), "spg_amber"),  # 앰버 바이저 렌즈(눈높이)
+    ("ellipsoid", (0.076, 0.074, 0.104), (0.014, 0.0, 0.426), "spg_shell"),  # 헬멧 돔(슬림·머리 밀착)
+    ("ellipsoid", (0.038, 0.054, 0.010), (0.062, 0.0, 0.436), "spg_amber"),  # 가는 앰버 바이저 슬릿
     ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_core"),  # SPG 가슴 코어 마크
 ]
 _GT = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
@@ -34,7 +34,7 @@ def build(xml_path):
         mt.rgba = rgba; mt.emission = em; mt.specular = sp
         mt.shininess = sh; mt.reflectance = rf
     addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)  # 매트 다크네이비 헬멧
-    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.40, 0.3)        # 시그니처 앰버(#FFB000)
+    addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.35, 0.5, 0.40, 0.3)        # 시그니처 앰버(#FFB000, 가는 슬릿)
     addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)       # 발광 코어
     # 몸통 재질: 풀 G1 restyle의 metal/black과 동일 광택(reflectance 포함)으로 통일
     addmat("spg_body", _BODY, 0.0, 0.45, 0.55, 0.18)   # 본체 다크네이비 스틸

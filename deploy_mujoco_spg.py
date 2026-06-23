@@ -53,7 +53,7 @@ def spg_build(xml_path):
             mt.rgba = rgba; mt.emission = em; mt.specular = sp
             mt.shininess = sh; mt.reflectance = rf
         addmat("spg_shell", [0.055, 0.075, 0.135, 1.0], 0.0, 0.15, 0.30, 0.05)
-        addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.25, 0.5, 0.40, 0.3)
+        addmat("spg_amber", [1.0, 0.69, 0.0, 1.0], 0.35, 0.5, 0.40, 0.3)
         addmat("spg_core",  [1.0, 0.78, 0.25, 1.0], 0.95, 0.6, 0.40, 0.3)
         BODY = [0.105, 0.145, 0.225, 1.0]; DARK = [0.040, 0.055, 0.090, 1.0]
         addmat("spg_body", BODY, 0.0, 0.45, 0.55, 0.18)   # 풀 G1 restyle와 동일 광택
@@ -74,8 +74,8 @@ def spg_build(xml_path):
         if unmatched:
             print("[spg] WARN recolor 미매칭 robot geom %d개 — 업스트림 rgba 변경?" % unmatched, flush=True)
         GT = {"box": mujoco.mjtGeom.mjGEOM_BOX, "ellipsoid": mujoco.mjtGeom.mjGEOM_ELLIPSOID}
-        SKIN = [("ellipsoid", (0.086, 0.092, 0.115), (0.010, 0.0, 0.428), "spg_shell"),
-                ("ellipsoid", (0.044, 0.062, 0.024), (0.060, 0.0, 0.449), "spg_amber"),
+        SKIN = [("ellipsoid", (0.076, 0.074, 0.104), (0.014, 0.0, 0.426), "spg_shell"),
+                ("ellipsoid", (0.038, 0.054, 0.010), (0.062, 0.0, 0.436), "spg_amber"),
                 ("box",       (0.010, 0.0075, 0.030), (0.080, 0.0, 0.295), "spg_core")]
         b = spec.body("pelvis")
         for i, (typ, size, pos, mat) in enumerate(SKIN):
