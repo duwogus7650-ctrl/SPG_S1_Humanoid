@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 *.pyo
+# START_SPG.bat 최초설정 마커(로컬)
+.spg_setup_done
 .DS_Store
 *.tmp
 g1_preview.png
