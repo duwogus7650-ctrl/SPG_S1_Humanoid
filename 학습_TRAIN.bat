@@ -1,27 +1,28 @@
 @echo off
 rem ============================================================
-rem  SPG S1 로컬 학습(PPO) — 더블클릭하면 바로 "학습 화면"으로.
-rem  (run.bat은 레퍼런스(목표 걸음새)만 뜹니다. 학습은 이 파일을 쓰세요.)
+rem  SPG S1 - LOCAL TRAINING (PPO). Double-click -> training window.
+rem  (run.bat shows only the reference gait. Use THIS for training.)
+rem  ASCII-only on purpose: Korean text in .bat breaks on cp949 consoles.
 rem ============================================================
-chcp 65001 >nul
 cd /d "%~dp0"
-title SPG S1 - 로컬 학습(PPO)
+title SPG S1 - Local Training (PPO)
 
 where python >nul 2>nul
 if errorlevel 1 (
-  echo [오류] Python 을 찾을 수 없습니다. https://www.python.org 에서 설치 후 다시 실행하세요.
+  echo [ERROR] Python not found. Install Python from https://www.python.org then retry.
   pause
   exit /b 1
 )
 
 echo ================================================
-echo   SPG S1 로컬 학습 (PPO 강화학습) 시작
-echo   - "PPO 강화학습" 4분할 화면이 뜹니다(로봇/신경망/학습곡선/패널).
-echo   - 처음엔 어설프게 움직이다 점점 걸음이 좋아집니다.
-echo   - 조작: Q/E 회전 . R 리셋 . ESC 종료   (자동저장 없음)
+echo   SPG S1 - LOCAL TRAINING ^(PPO^)
+echo   A 4-panel "PPO" training window will open:
+echo   robot / live neural net / learning curve / stats.
+echo   It starts clumsy and improves as it learns.
+echo   Keys: Q/E rotate . R reset . ESC quit  ^(no autosave^)
 echo ================================================
 echo.
 python run.py train
 echo.
-echo [학습 종료] 아무 키나 누르면 창을 닫습니다.
+echo [Training ended] Press any key to close.
 pause >nul
