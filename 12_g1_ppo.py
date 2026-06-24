@@ -49,7 +49,7 @@ WIDTH, HEIGHT = 1240, 780
 ARENA_H = 510
 RENDER_W, RENDER_H = 900, 372         # 오프스크린 렌더 해상도(아레나로 확대)
 
-N_ENVS = 6
+N_ENVS = int(os.environ.get("N_ENVS", "6"))   # 클라우드는 워크플로 env로 상향(샘플 다양성↑ → 국소최적 탈출)
 NET_ARCH = [256, 256]
 FALL_Z = 0.55                         # 골반 높이 이 아래면 종료
 ACTION_SCALE = float(os.environ.get("ACTION_SCALE", "0.25"))  # Unitree legged_gym G1 값
@@ -79,6 +79,10 @@ R_LIN_Z, R_ANG_XY, R_ORI, R_HEIGHT = -2.0, -0.05, -1.0, -10.0
 R_DOF_ACC, R_DOF_VEL, R_ARATE, R_DOF_LIM = -2.5e-7, -1e-3, -0.01, -5.0
 R_ALIVE, R_HIP, R_CONTACT_NOVEL, R_SWING_H, R_CONTACT = 0.15, -1.0, -0.2, -20.0, 0.18
 BASE_HEIGHT_TARGET, FEET_SWING_TARGET, TRACK_SIGMA = 0.78, 0.08, 0.25
+# 걸음 유도(legged_gym feet_air_time): 발을 떼었다 내딛는 '실제 걸음'에만 보상.
+# 제자리 서기/흔들기는 발이 계속 접지라 보상 0 → '서기 국소최적' 탈출의 핵심 신호.
+R_AIR_TIME = float(os.environ.get("R_AIR_TIME", "1.0"))
+AIR_TIME_TARGET = 0.30               # 목표 공중시간(s): 이보다 길게 떼면 +, 짧으면 약한 −
 
 # 기본자세(키프레임0) — 레퍼런스 모션의 베이스
 _d0 = mujoco.MjData(_M0)
@@ -269,6 +273,8 @@ class G1Env(gym.Env):
         self.prev_a = np.zeros(ACT_DIM, np.float32)
         self.prev_dofvel = np.zeros(ACT_DIM)
         self.prev_foot_xy = np.zeros((2, 2))
+        self.feet_air_time = np.zeros(2)              # 발별 공중 누적시간(걸음 보상용)
+        self.last_contact = np.ones(2, dtype=bool)    # 직전 스텝 접지여부(착지 검출용)
         self.t = 0
 
     def _obs(self):
@@ -300,6 +306,8 @@ class G1Env(gym.Env):
         self.prev_a[:] = 0.0
         self.prev_dofvel = self.d.qvel[LEG_QVEL].copy()
         self.prev_foot_xy = self.d.xpos[self.feet][:, :2].copy()
+        self.feet_air_time[:] = 0.0
+        self.last_contact = self.d.xpos[self.feet][:, 2] < FOOT_CONTACT_H
         self.t = 0
         return self._obs(), {}
 
@@ -332,16 +340,20 @@ class G1Env(gym.Env):
         r += R_ARATE * float(np.sum((a - self.prev_a)**2))
         r += R_HIP * float(np.sum(self.d.qpos[HIP_YR_Q]**2))   # 다리벌어짐 방지
         r += R_ALIVE
-        # 보행시계로 기대 접지 판정 → 접지패턴/발스윙높이/미끄럼방지
+        # 걸음 유도(legged_gym feet_air_time) + 미끄럼 방지.
+        # 발이 일정시간 공중에 있다 착지하는 '실제 걸음(first_contact)'에만 보상 →
+        # 제자리 흔들기/질질끌기(발이 계속 접지)는 보상 0 = 서기 국소최적 탈출 주신호.
+        # 전진명령이 있을 때만 적용(가만히 있으라는 명령엔 걸음 강요 안 함).
         foot_z = self.d.xpos[self.feet][:, 2]
         contact = foot_z < FOOT_CONTACT_H
-        exp_stance = [self.phase < 0.5, self.phase >= 0.5]
-        for i in range(2):
-            if contact[i] == exp_stance[i]:
-                r += R_CONTACT                            # 접지패턴 일치 보상
-            if not exp_stance[i]:                          # 스윙: 발 들기 목표
-                r += R_SWING_H * (foot_z[i] - FEET_SWING_TARGET)**2
-            if contact[i]:                                # 접지 중 수평이동(미끄럼) 페널티
+        first_contact = contact & (~self.last_contact)    # 이번 스텝에 막 착지한 발
+        self.feet_air_time += self.dt
+        if float(np.linalg.norm(self.cmd[:2])) > 0.1:
+            r += R_AIR_TIME * float(np.sum((self.feet_air_time - AIR_TIME_TARGET) * first_contact))
+        self.feet_air_time *= (~contact)                  # 착지한 발은 공중시간 0으로 리셋
+        self.last_contact = contact.copy()
+        for i in range(2):                                # 접지 중 수평이동(미끄럼) 페널티
+            if contact[i]:
                 fv = (self.d.xpos[self.feet[i]][:2] - prev_foot_xy[i]) / self.dt
                 r += R_CONTACT_NOVEL * float(np.sum(fv**2))
         self.prev_a = a.copy()
@@ -402,12 +414,13 @@ def train_thread():
     venv = VecNormalize(DummyVecEnv([make_env for _ in range(N_ENVS)]),
                         norm_obs=True, norm_reward=True, clip_obs=10.0)
     model = PPO("MlpPolicy", venv, n_steps=1024, batch_size=2048, n_epochs=10,
-                gamma=0.99, gae_lambda=0.95, ent_coef=0.0, learning_rate=3e-4,
+                gamma=0.99, gae_lambda=0.95,
+                ent_coef=float(os.environ.get("ENT_COEF", "0.0")), learning_rate=3e-4,
                 clip_range=0.2, vf_coef=0.5, max_grad_norm=0.5,
-                # log_std_init=-1: 잔차 탐험 노이즈 축소(std 1.0→0.37).
-                # 29관절이 매 스텝 풀스윙으로 흔들리면 노이즈만으로 넘어져
-                # 균형 신호가 묻힌다(위치제어 휴머노이드 표준 설정).
-                policy_kwargs=dict(net_arch=NET_ARCH, log_std_init=-1.0),
+                # log_std_init: 잔차 탐험 노이즈. 기본 -1(std 0.37)은 탐험이 약해 '서기'에
+                # 갇히기 쉽다 → 클라우드는 LOG_STD env로 상향(예 -0.5, std 0.6)해 걸음 탐색.
+                policy_kwargs=dict(net_arch=NET_ARCH,
+                                   log_std_init=float(os.environ.get("LOG_STD", "-1.0"))),
                 device="cpu", verbose=0)
     model.learn(total_timesteps=50_000_000, callback=Snapshot())
 

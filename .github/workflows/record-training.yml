@@ -79,6 +79,9 @@ jobs:
           INTERVAL_SEC: ${{ github.event.inputs.interval_seconds }}
           CLIP_SEC: ${{ github.event.inputs.clip_seconds }}
           OFFSET_SEC: "0"
+          N_ENVS: "16"             # 환경 6→16: 샘플 다양성↑ → '서기 국소최적' 탈출
+          ENT_COEF: "0.01"         # 엔트로피 보너스: 걸음 탐색 유지
+          LOG_STD: "-0.5"          # 초기 탐험 std 0.37→0.6
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
@@ -151,6 +154,9 @@ jobs:
           INTERVAL_SEC: ${{ github.event.inputs.interval_seconds }}
           CLIP_SEC: ${{ github.event.inputs.clip_seconds }}
           OFFSET_SEC: ${{ steps.offset.outputs.seconds }}
+          N_ENVS: "16"             # 세그먼트1과 동일(VecNormalize/정책 env 수 일치)
+          ENT_COEF: "0.01"
+          LOG_STD: "-0.5"
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_ID: ${{ github.run_id }}
